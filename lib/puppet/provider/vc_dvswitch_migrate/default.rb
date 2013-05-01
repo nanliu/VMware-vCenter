@@ -17,21 +17,17 @@ Puppet::Type.type(:vc_dvswitch_migrate).provide( :vc_dvswitch_migrate,
   def vmk3 ; vmk_get 'vmk3' ; end
 
   def vmk_get vmknic 
-    pg_name = nil
+    vnic = host.configManager.networkSystem.networkConfig.vnic.find{|v|
+          v.device = vmknic
+        } || (fail "#{host.name}: #{vmknic} not found")
 
-    vnic = host.configManager.networkSystem.networkConfig.
-      vnic.find{|v| v.device = vmknic}
-    fail "#{host.name}: #{vmknic} not found" unless vnic
-
-    pg_name =
-      if (pg = vnic.portgroup) && pg != ""
-        pg 
-      elsif (pgKey = vnic.spec.distributedVirtualPort.portgroupKey)
-        (dvpg_by_key pgKey).name
-      else
-        nil
-      end
-
+    if (pg = vnic.portgroup) && pg != ""
+      pg 
+    elsif (pgKey = vnic.spec.distributedVirtualPort.portgroupKey)
+      (dvpg_by_key pgKey).name
+    else
+      nil
+    end
   end
 
   def vmk0= pg_name ; vmk_set 'vmk0', pg_name ; end
@@ -40,12 +36,8 @@ Puppet::Type.type(:vc_dvswitch_migrate).provide( :vc_dvswitch_migrate,
   def vmk3= pg_name ; vmk_set 'vmk3', pg_name ; end
 
   def vmk_set vmknic, pg_name
-    pg_name_old = self.send vmknic.to_sym
-    pg_new = datacenter.network.find{|pg| pg.name == pg_name}
-    msg = "#{vmknic}: \"#{pg_name}\" not in portgroups of \"#{dvswitch.name}\""
-    fail msg unless 
-      (pg_new && pg_new.config.distributedVirtualSwitch.uuid == dvswitch.uuid)
 
+    # create request to move vmknic to portgroup on dvswitch
     hostNetworkConfig.vnic <<
       RbVmomi::VIM.HostVirtualNicConfig(
         :changeOperation => 'edit',
@@ -55,16 +47,17 @@ Puppet::Type.type(:vc_dvswitch_migrate).provide( :vc_dvswitch_migrate,
           :distributedVirtualPort => 
             RbVmomi::VIM.DistributedVirtualSwitchPortConnection(
               :switchUuid => dvswitch.uuid,
-              :portgroupKey => pg_new.key
+              :portgroupKey => (dvpg_by_name pg_name).key
             )
         )
       )
 
+    # create request to remove old portgroup from standard switch
     hostNetworkConfig.portgroup <<
       RbVmomi::VIM.HostPortGroupConfig(
         :changeOperation => 'remove',
         :spec => RbVmomi::VIM.HostPortGroupSpec(
-          :name => pg_name_old,
+          :name => (self.send vmknic.to_sym),
           # add some properties required by wsdl
           :vlanId => -1,
           :vswitchName => '',
@@ -81,6 +74,7 @@ Puppet::Type.type(:vc_dvswitch_migrate).provide( :vc_dvswitch_migrate,
   def vmnic3 ; vmnic_get 'vmnic3' ; end
 
   def vmnic_get vmnic
+    # nil is valid - some vmnics (pnics) may be unassigned
     pg_name = nil
 
     # There is no portgroup for uplinks on standard switch; use 
@@ -110,16 +104,17 @@ Puppet::Type.type(:vc_dvswitch_migrate).provide( :vc_dvswitch_migrate,
   def vmnic_set vmnic, pg_name
     msg = "#{vmnic}: \"#{dvswitch.name}\" has no uplink "\
           "portgroup \"#{pg_name}\""
-    pg = dvswitch.config.uplinkPortgroup.
-        find{|ulpg|
-        ulpg.name == pg_name
-      } || fail msg
+    pg = dvswitch.config.uplinkPortgroup.find{|ulpg|
+          ulpg.name == pg_name
+        } || (fail msg)
 
+    # create request to move vminc to portgroup on dvswitch
     hostNetworkConfig.proxySwitch[0].spec.backing.pnicSpec <<
       RbVmomi::VIM.DistributedVirtualSwitchHostMemberPnicSpec(
         :pnicDevice => vmnic,
         :uplinkPortgroupKey => pg.key
       )
+    # add vmnic to list to be removed from standard switch
     migrating_pnic << vmnic
 
     @flush_required = true
