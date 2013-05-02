@@ -195,43 +195,43 @@ Puppet::Type.type(:vc_dvswitch_migrate).provide( :vc_dvswitch_migrate,
   end
 
   def host
-    @host ||=
-      begin
-        vim.searchIndex.FindByDnsName(
-             :dnsName => resource[:host], :vmSearch => false
-          ) ||
-        (fail "host \"#{resource[:host]}\" not found")
-      end
-    @host
+    @host ||= find_host
+  end
+
+  def find_host
+    result = vim.searchIndex.FindByDnsName(
+      :dnsName => resource[:host], :vmSearch => false
+    )
+    result or fail "host \"#{resource[:host]}\" not found"
   end
 
   def proxyswitch
     # find proxyswitch corresponding to dvswitch being configured
-    @proxySwitch ||=
-      begin
-        dvsName = resource[:dvswitch].split('/').last
-        msg = "host \"#{resource[:host]}\" is not a member of "\
-          "dvswitch \"#{resource[:dvswitch]}\""
-        host.configManager.networkSystem.networkInfo.proxySwitch.
-          find{ |pxsw|
-            pxsw.dvsName == dvsName
-          } ||
-        (fail msg)
-      end
+    @proxySwitch ||= find_proxyswitch dvs_name
+  end
+
+  def find_proxyswitch(name)
+    error_msg = "host \"#{resource[:host]}\" is not a member of "\
+      "dvswitch \"#{resource[:dvswitch]}\""
+    result = host.configManager.networkSystem.networkInfo.proxySwitch.find{ |pxsw|
+      pxsw.dvsName == name
+    }
+    result or fail error_msg
   end
 
   def datacenter
-    @datacenter ||=
-      begin
-        entity = host
-        while entity = entity.parent
-          if entity.class == RbVmomi::VIM::Datacenter
-            break entity
-          elsif entity == rootfolder
-            fail "no datacenter found for host \"#{resource[:host]}\""
-          end
-        end
+    @datacenter ||= find_datacenter
+  end
+
+  def find_datacenter
+    entity = host
+    while entity = entity.parent
+      if entity.class == RbVmomi::VIM::Datacenter
+        break entity
+      elsif entity == rootfolder
+        fail "no datacenter found for host \"#{resource[:host]}\""
       end
+    end
   end
 
   def dvswitch
