@@ -38,7 +38,7 @@ Puppet::Type.type(:vc_dvswitch_migrate).provide( :vc_dvswitch_migrate,
         :device => vmknic,
         :portgroup => '',
         :spec => RbVmomi::VIM.HostVirtualNicSpec(
-          :distributedVirtualPort => 
+          :distributedVirtualPort =>
             RbVmomi::VIM.DistributedVirtualSwitchPortConnection(
               :switchUuid => dvswitch.uuid,
               :portgroupKey => (dvpg_by_name pg_name).key
@@ -126,7 +126,7 @@ Puppet::Type.type(:vc_dvswitch_migrate).provide( :vc_dvswitch_migrate,
 
   def flush_prep
     # remove properties from request if not changed by user
-    hostNetworkConfig.props.delete :proxySwitch if 
+    hostNetworkConfig.props.delete :proxySwitch if
       hostNetworkConfig.proxySwitch[0].spec.backing.pnicSpec.empty?
     hostNetworkConfig.props.delete :vnic if
       hostNetworkConfig.vnic.empty?
@@ -158,7 +158,6 @@ Puppet::Type.type(:vc_dvswitch_migrate).provide( :vc_dvswitch_migrate,
     end
 
     hostNetworkConfig
-    # require 'ruby-debug'; debugger ; hostNetworkConfig
   end
 
   def flush
@@ -188,7 +187,7 @@ Puppet::Type.type(:vc_dvswitch_migrate).provide( :vc_dvswitch_migrate,
         ],
         :portgroup => [],
         :vnic => []
-    )
+      )
   end
 
   def migrating_pnic
@@ -196,7 +195,7 @@ Puppet::Type.type(:vc_dvswitch_migrate).provide( :vc_dvswitch_migrate,
   end
 
   def host
-    @host ||= 
+    @host ||=
       begin
         vim.searchIndex.FindByDnsName(
              :dnsName => resource[:host], :vmSearch => false
@@ -208,13 +207,13 @@ Puppet::Type.type(:vc_dvswitch_migrate).provide( :vc_dvswitch_migrate,
 
   def proxyswitch
     # find proxyswitch corresponding to dvswitch being configured
-    @proxySwitch ||= 
+    @proxySwitch ||=
       begin
         dvsName = resource[:dvswitch].split('/').last
         msg = "host \"#{resource[:host]}\" is not a member of "\
           "dvswitch \"#{resource[:dvswitch]}\""
         host.configManager.networkSystem.networkInfo.proxySwitch.
-          find{|pxsw| 
+          find{ |pxsw|
             pxsw.dvsName == dvsName
           } ||
         (fail msg)
@@ -222,7 +221,7 @@ Puppet::Type.type(:vc_dvswitch_migrate).provide( :vc_dvswitch_migrate,
   end
 
   def datacenter
-    @datacenter ||= 
+    @datacenter ||=
       begin
         entity = host
         while entity = entity.parent
