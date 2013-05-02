@@ -235,46 +235,49 @@ Puppet::Type.type(:vc_dvswitch_migrate).provide( :vc_dvswitch_migrate,
   end
 
   def dvswitch
-    @dvswitch ||= 
-      begin
-        dvsName = resource[:dvswitch].split('/').last
-        datacenter.networkFolder.children.
-          select{|net|
-            RbVmomi::VIM::VmwareDistributedVirtualSwitch === net
-          }.
-          find{|net|
-            net.name == dvsName
-          } ||
-          (fail "dvswitch \"#{resource[:dvswitch]}\"not found")
-      end
+    @dvswitch ||= find_dvswitch dvs_name
+  end
+
+  def find_dvswitch(name)
+    result = datacenter.networkFolder.children.select{ |net|
+      RbVmomi::VIM::VmwareDistributedVirtualSwitch === net
+    }.find{ |net|
+      net.name == name
+    }
+    result or fail "dvswitch \"#{resource[:dvswitch]}\"not found"
+  end
+
+  def dvs_name
+    resource[:dvswitch].split('/').last
   end
 
   def dvpg_list
-    @dvpg_list ||=
-      begin
-        datacenter.network.select{|pg|
-            RbVmomi::VIM::DistributedVirtualPortgroup === pg
-          } ||
-          []
-      end
+    @dvpg_list ||= find_dvpg_list
+  end
+
+  def find_dvpg_list
+    result = datacenter.network.select{ |pg|
+      RbVmomi::VIM::DistributedVirtualPortgroup === pg
+    }
+    result || []
   end
 
   def dvpg_by_name name
-    msg = "dvportgroup \"#{name}\" not found in dvswitch \"#{dvswitch.name}\""
-    dvpg_list.find{|pg| 
-        pg.config.name == name && 
-          pg.config.distributedVirtualSwitch.uuid == dvswitch.uuid
-      } ||
-      (fail msg)
+    error_msg = "dvportgroup \"#{name}\" not found in dvswitch \"#{dvswitch.name}\""
+    result = dvpg_list.find{ |pg|
+      pg.config.name == name &&
+        pg.config.distributedVirtualSwitch.uuid == dvswitch.uuid
+    }
+    result or fail error_msg
   end
 
   def dvpg_by_key key
-    msg = "dvportgroup \"#{key}\" not found in dvswitch \"#{dvswitch.name}\""
-    dvpg_list.find{|pg|
-        pg.key == key &&
-          pg.config.distributedVirtualSwitch.uuid == dvswitch.uuid
-      } ||
-      (fail msg)
+    error_msg = "dvportgroup \"#{key}\" not found in dvswitch \"#{dvswitch.name}\""
+    result = dvpg_list.find{ |pg|
+      pg.key == key &&
+        pg.config.distributedVirtualSwitch.uuid == dvswitch.uuid
+    }
+    result or fail error_msg
   end
 
 end
