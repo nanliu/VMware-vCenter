@@ -11,11 +11,6 @@ Puppet::Type.type(:vc_dvswitch_migrate).provide( :vc_dvswitch_migrate,
   @doc = "Manages Distributed Virtual Switch migration on an ESXi host"\
          "by moving vmknics and vmnics from standard to distributed switch"
 
-  def vmk0 ; vmk_get 'vmk0' ; end
-  def vmk1 ; vmk_get 'vmk1' ; end
-  def vmk2 ; vmk_get 'vmk2' ; end
-  def vmk3 ; vmk_get 'vmk3' ; end
-
   def vmk_get vmknic 
     vnic = host.configManager.networkSystem.networkConfig.vnic.find{|v|
           v.device = vmknic
@@ -30,13 +25,7 @@ Puppet::Type.type(:vc_dvswitch_migrate).provide( :vc_dvswitch_migrate,
     end
   end
 
-  def vmk0= pg_name ; vmk_set 'vmk0', pg_name ; end
-  def vmk1= pg_name ; vmk_set 'vmk1', pg_name ; end
-  def vmk2= pg_name ; vmk_set 'vmk2', pg_name ; end
-  def vmk3= pg_name ; vmk_set 'vmk3', pg_name ; end
-
   def vmk_set vmknic, pg_name
-
     # create request to move vmknic to portgroup on dvswitch
     hostNetworkConfig.vnic <<
       RbVmomi::VIM.HostVirtualNicConfig(
@@ -68,11 +57,6 @@ Puppet::Type.type(:vc_dvswitch_migrate).provide( :vc_dvswitch_migrate,
     @flush_required = true
   end
 
-  def vmnic0 ; vmnic_get 'vmnic0' ; end
-  def vmnic1 ; vmnic_get 'vmnic1' ; end
-  def vmnic2 ; vmnic_get 'vmnic2' ; end
-  def vmnic3 ; vmnic_get 'vmnic3' ; end
-
   def vmnic_get vmnic
     # nil is valid - some vmnics (pnics) may be unassigned
     pg_name = nil
@@ -96,11 +80,6 @@ Puppet::Type.type(:vc_dvswitch_migrate).provide( :vc_dvswitch_migrate,
     pg_name
   end
 
-  def vmnic0= pg_name ; vmnic_set 'vmnic0', pg_name ; end
-  def vmnic1= pg_name ; vmnic_set 'vmnic1', pg_name ; end
-  def vmnic2= pg_name ; vmnic_set 'vmnic2', pg_name ; end
-  def vmnic3= pg_name ; vmnic_set 'vmnic3', pg_name ; end
-
   def vmnic_set vmnic, pg_name
     msg = "#{vmnic}: \"#{dvswitch.name}\" has no uplink "\
           "portgroup \"#{pg_name}\""
@@ -118,6 +97,26 @@ Puppet::Type.type(:vc_dvswitch_migrate).provide( :vc_dvswitch_migrate,
     migrating_pnic << vmnic
 
     @flush_required = true
+  end
+
+  ('0'..'31').each do |i|
+    vmk_port = 'vmk'+i
+    define_method(vmk_port) do
+      vmk_get vmk_port
+    end
+
+    define_method(vmk_port+'=') do |pg_name|
+      vmk_set vmk_port, pg_name
+    end
+
+    vmnic = 'vmnic'+i
+    define_method(vmnic) do
+      vmnic_get vmnic
+    end
+
+    define_method(vmnic+'=') do |pg_name|
+      vmnic_set vmnic, pg_name
+    end
   end
 
   def flush_prep
