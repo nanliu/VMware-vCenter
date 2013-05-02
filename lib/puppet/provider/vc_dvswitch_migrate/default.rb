@@ -136,11 +136,11 @@ Puppet::Type.type(:vc_dvswitch_migrate).provide( :vc_dvswitch_migrate,
         if RbVmomi::VIM::HostVirtualSwitchBondBridge === sw.spec.bridge
           # standard switch for multiple uplinks
           if (sw.spec.bridge.nicDevice & migrating_pnic).size > 0
-            hostNetworkConfig.vswitch << sw
             sw.changeOperation = 'edit'
-            sw.spec.bridge.nicDevice -= migrating_pnic
+            sw.spec.bridge = nil
             sw.spec.policy.nicTeaming.nicOrder.activeNic -= migrating_pnic
             sw.spec.policy.nicTeaming.nicOrder.standbyNic -= migrating_pnic
+            hostNetworkConfig.vswitch << sw
           end
         else
           # standard switch for single uplink
