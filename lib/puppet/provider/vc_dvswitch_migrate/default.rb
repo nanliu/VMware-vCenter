@@ -11,18 +11,23 @@ Puppet::Type.type(:vc_dvswitch_migrate).provide( :vc_dvswitch_migrate,
   @doc = "Manages Distributed Virtual Switch migration on an ESXi host"\
          "by moving vmknics and vmnics from standard to distributed switch"
 
-  def vmk_get vmknic 
-    vnic = host.configManager.networkSystem.networkConfig.vnic.find{|v|
-          v.device = vmknic
-        } || (fail "#{host.name}: #{vmknic} not found")
+  def vmk_get vmknic
+    vnic = find_vmknic vmknic
 
     if (pg = vnic.portgroup) && pg != ""
-      pg 
+      pg
     elsif (pgKey = vnic.spec.distributedVirtualPort.portgroupKey)
       (dvpg_by_key pgKey).name
     else
       nil
     end
+  end
+
+  def find_vmknic vmknic
+    result = host.configManager.networkSystem.networkConfig.vnic.find{ |v|
+      v.device = vmknic
+    }
+    result or fail "#{host.name}: #{vmknic} not found"
   end
 
   def vmk_set vmknic, pg_name
